@@ -1,3 +1,4 @@
+// beast-frontend/src/App.jsx
 import React, { useEffect, useMemo, useState } from "react";
 
 const API_BASE = "https://beast-consultancy.onrender.com";
@@ -115,32 +116,12 @@ function validateProfileStep2(p) {
   if (!Number.isFinite(maxUnis)) errors.maxUnis = "Enter a number (1–15).";
   else if (maxUnis < 1 || maxUnis > 15) errors.maxUnis = "Max universities must be 1–15.";
 
-  // course cluster mandatory
   if (!Array.isArray(p.clusters) || p.clusters.length === 0) {
     errors.clusters = "Please select at least 1 course cluster.";
   }
 
   return errors;
 }
-
-// ----------------- Small UI helpers -----------------
-const clampInt = (v) => {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return null;
-  return Math.round(n);
-};
-
-const formatFit = (fit) => {
-  const n = clampInt(fit);
-  if (n === null) return null;
-  return `${Math.max(0, Math.min(100, n))}/100`;
-};
-
-const formatProb = (p) => {
-  const n = clampInt(p);
-  if (n === null) return null;
-  return `${Math.max(0, Math.min(100, n))}%`;
-};
 
 // ----------------- Main App -----------------
 function App() {
@@ -163,6 +144,7 @@ function App() {
   const [globalAdvice, setGlobalAdvice] = useState(null);
 
   const [compareIds, setCompareIds] = useState([]);
+  const [isBotOpen, setIsBotOpen] = useState(false);
 
   // ------- Load course clusters when country changes -------
   useEffect(() => {
@@ -190,16 +172,17 @@ function App() {
 
   const currentClusters = clustersByCountry[selectedCountry] || [];
 
-  const selectedRec =
-    recommendations.find((r) => r.course_id === selectedRecId) ||
-    recommendations[0] ||
-    null;
+  const selectedRec = useMemo(() => {
+    return (
+      recommendations.find((r) => r.course_id === selectedRecId) ||
+      recommendations[0] ||
+      null
+    );
+  }, [recommendations, selectedRecId]);
 
   const safeCount = recommendations.filter((r) => r.level_band === "safe").length;
   const moderateCount = recommendations.filter((r) => r.level_band === "moderate").length;
   const ambitiousCount = recommendations.filter((r) => r.level_band === "ambitious").length;
-
-  const handleSelectCountry = (code) => setSelectedCountry(code);
 
   const handleStart = () => {
     setView("form");
@@ -301,6 +284,7 @@ function App() {
     setSelectedRecId(null);
     setGlobalAdvice(null);
     setCompareIds([]);
+    setIsBotOpen(false);
   };
 
   // ----------------- UI Pieces -----------------
@@ -314,13 +298,11 @@ function App() {
           <div className="brand-sub">
             Strict, realistic admissions engine – powered by your own DB.
           </div>
-          <div className="built-by-inline">
-            Product design &amp; build by Avanidhar 🚀
-          </div>
+          <div className="built-by-inline">Product design &amp; build by Avanidhar 🚀</div>
         </div>
       </div>
 
-      <div className="header-right-pill">Offline rules • No API keys</div>
+      {rightNode || <div className="header-right-pill">Offline rules • No API keys</div>}
     </header>
   );
 
@@ -355,7 +337,7 @@ function App() {
                 <button
                   key={code}
                   className={`country-card ${selected ? "selected" : ""}`}
-                  onClick={() => handleSelectCountry(code)}
+                  onClick={() => setSelectedCountry(code)}
                 >
                   <div className="country-flag">{c.flag}</div>
                   <div className="country-name">
@@ -491,9 +473,7 @@ function App() {
                       <option value="medium">Medium of Instruction</option>
                       <option value="none">No test yet</option>
                     </select>
-                    {errors1.englishProof && (
-                      <div className="field-note error">{errors1.englishProof}</div>
-                    )}
+                    {errors1.englishProof && <div className="field-note error">{errors1.englishProof}</div>}
                   </div>
 
                   <div className="form-field">
@@ -506,9 +486,7 @@ function App() {
                       placeholder="e.g. 6.5 or 70"
                       inputMode="decimal"
                     />
-                    {errors1.englishScore && (
-                      <div className="field-note error">{errors1.englishScore}</div>
-                    )}
+                    {errors1.englishScore && <div className="field-note error">{errors1.englishScore}</div>}
                   </div>
 
                   <div className="form-field full">
@@ -579,20 +557,14 @@ function App() {
                         inputMode="numeric"
                       />
                       {errors2.maxUnis && <div className="field-note error">{errors2.maxUnis}</div>}
-                      <div className="field-note">
-                        Max 15 – engine will include at least 1 ambitious if possible.
-                      </div>
+                      <div className="field-note">Max 15 – engine will include at least 1 ambitious if possible.</div>
                     </div>
 
                     <div className="form-actions full">
                       <button className="btn ghost" onClick={() => setFormStep(1)}>
                         ← Back to profile
                       </button>
-                      <button
-                        className="btn primary"
-                        onClick={handleFindUniversities}
-                        disabled={loadingRecs}
-                      >
+                      <button className="btn primary" onClick={handleFindUniversities} disabled={loadingRecs}>
                         {loadingRecs ? "Finding universities…" : "Find universities"}
                       </button>
                     </div>
@@ -628,9 +600,7 @@ function App() {
                         </div>
                       </div>
 
-                      <div className="field-note">
-                        Tip: Pick 2–3 clusters for best matching (e.g. Data + Business + Cloud).
-                      </div>
+                      <div className="field-note">Tip: Pick 2–3 clusters for best matching.</div>
                     </div>
                   </div>
                 </div>
@@ -642,19 +612,14 @@ function App() {
             <div className="country-info-card">
               <h3>About {cInfo.name}</h3>
               <p>{cInfo.tagline}</p>
-
               <ul>
                 {cInfo.bullets.map((b) => (
                   <li key={b}>{b}</li>
                 ))}
               </ul>
-
               <div className="country-extra">
                 {cInfo.extra_notes.map((n) => (
-                  <div key={n} className="note-pill">
-                    {selectedCountry === "US" && n.toLowerCase().includes("gre") ? "🧾 " : "💡 "}
-                    {n}
-                  </div>
+                  <div key={n} className="note-pill">💡 {n}</div>
                 ))}
               </div>
             </div>
@@ -682,14 +647,15 @@ function App() {
               <h2>Recommendations 🎯</h2>
               <p>
                 Profile for <strong>{profile.name || "Student"}</strong> · CGPA{" "}
-                <strong>{profile.cgpa || "?"}</strong> · Budget{" "}
-                <strong>{profile.budget || "?"}L</strong>
+                <strong>{profile.cgpa || "?"}</strong> · Budget <strong>{profile.budget || "?"}L</strong>
               </p>
+
               <div className="summary-pills">
                 <span className="pill safe">Safe: {safeCount}</span>
                 <span className="pill moderate">Moderate: {moderateCount}</span>
                 <span className="pill ambitious">Ambitious: {ambitiousCount}</span>
               </div>
+
               <button className="btn ghost small" onClick={() => setView("form")}>
                 ← Back to form
               </button>
@@ -699,23 +665,16 @@ function App() {
             </div>
 
             {recsError && <div className="error-box small">{recsError}</div>}
-
             {recommendations.length === 0 && !loadingRecs && (
               <div className="no-results-box">
-                No recommendations yet. Try adjusting CGPA, budget or English and click{" "}
-                <b>Find universities</b>.
+                No recommendations yet. Try adjusting CGPA, budget or English and click <b>Find universities</b>.
               </div>
             )}
-
             {loadingRecs && <div className="loading-box">Finding realistic options…</div>}
 
             <div className="uni-list">
               {recommendations.map((rec) => {
                 const active = rec.course_id === selectedRecId;
-
-                const fitText = formatFit(rec.fit_score);
-                const probText = formatProb(rec.admission_probability);
-
                 return (
                   <div
                     key={rec.course_id}
@@ -728,33 +687,20 @@ function App() {
                           {rec.university_name} – {rec.city}
                         </div>
                         <div className="uni-row-course">{rec.course_name}</div>
+
                         <div className="uni-row-meta">
-                          <span className={`pill level-${rec.level_band}`}>
-                            {String(rec.level_band || "").toUpperCase()}
-                          </span>
-
-                          {/* ✅ NEW: Fit + Probability */}
-                          {fitText && (
-                            <span className="pill subtle">Fit: {fitText}</span>
-                          )}
-                          {probText && (
-                            <span className="pill subtle">Prob: {probText}</span>
-                          )}
-
+                          <span className={`pill level-${rec.level_band}`}>{rec.level_band.toUpperCase()}</span>
+                          <span className="pill subtle">Fit: {rec.fit_score ?? "?"}/100</span>
+                          <span className="pill subtle">Admit: {rec.admission_probability ?? "?"}%</span>
                           <span className="pill subtle">Visa: {rec.visa_risk || "?"}</span>
-                          <span className="pill subtle">
-                            1st year: {rec.total_first_year_cost_lakhs}L
-                          </span>
+                          <span className="pill subtle">1st year: {rec.total_first_year_cost_lakhs}L</span>
                           <span className="pill subtle">Intakes: {rec.intakes_text}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="uni-row-actions">
-                      <label
-                        className="checkbox-label small"
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                      <label className="checkbox-label small" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={compareIds.includes(rec.course_id)}
@@ -771,29 +717,21 @@ function App() {
           </section>
 
           <section className="right-panel results-detail">
-            {selectedRec ? (
-              <DetailCard rec={selectedRec} selectedCountry={selectedCountry} />
-            ) : (
-              <div className="no-detail-box">Select a university from the left.</div>
-            )}
+            {selectedRec ? <DetailCard rec={selectedRec} selectedCountry={selectedCountry} /> : <div className="no-detail-box">Select a university from the left.</div>}
             {globalAdvice && <GlobalAdviceCard globalAdvice={globalAdvice} />}
           </section>
         </main>
 
-        {compareIds.length > 0 && (
-          <CompareDrawer recs={compareRecs} onClear={() => setCompareIds([])} />
-        )}
+        {compareIds.length > 0 && <CompareDrawer recs={compareRecs} onClear={() => setCompareIds([])} />}
 
-        <HelpBot
-          isOpen={false}
-          onToggle={() => {}}
-          profile={profile}
-          country={cInfo}
-          globalAdvice={globalAdvice}
-          safeCount={safeCount}
-          moderateCount={moderateCount}
-          ambitiousCount={ambitiousCount}
-        />
+        <button className="bot-fab" onClick={() => setIsBotOpen((v) => !v)} title="Beast Help">
+          💬
+        </button>
+        {isBotOpen && (
+          <div className="mini-help">
+            Ask: budget / English / SAFE vs AMBITIOUS / how many apply 🙂
+          </div>
+        )}
       </div>
     );
   };
@@ -806,9 +744,7 @@ function App() {
 // ----------------- Detail components -----------------
 function DetailCard({ rec, selectedCountry }) {
   const english = rec.english_requirement || {};
-
-  const fitText = formatFit(rec.fit_score);
-  const probText = formatProb(rec.admission_probability);
+  const explain = rec.ai_explainability || null;
 
   return (
     <div className="detail-card">
@@ -821,11 +757,9 @@ function DetailCard({ rec, selectedCountry }) {
         </div>
 
         <div className="detail-badges">
-          <span className={`pill level-${rec.level_band}`}>
-            {String(rec.level_band || "").toUpperCase()}
-          </span>
-          {fitText && <span className="pill subtle">Fit: {fitText}</span>}
-          {probText && <span className="pill subtle">Prob: {probText}</span>}
+          <span className={`pill level-${rec.level_band}`}>{rec.level_band.toUpperCase()}</span>
+          <span className="pill subtle">Fit: {rec.fit_score ?? "?"}/100</span>
+          <span className="pill subtle">Admit: {rec.admission_probability ?? "?"}%</span>
           <span className="pill subtle">{rec.tier_label}</span>
           <span className="pill subtle">Visa: {rec.visa_risk || "?"}</span>
         </div>
@@ -834,16 +768,14 @@ function DetailCard({ rec, selectedCountry }) {
       {selectedCountry === "US" && (
         <div className="detail-section advice-section">
           <h4>US Test Note 🧾</h4>
-          <p>
-            Some US programs may require/recommend <b>GRE/GMAT</b>. Always confirm
-            on the official course page and university admissions page.
-          </p>
+          <p>Some US programs may require/recommend <b>GRE/GMAT</b>. Always confirm on the official course page.</p>
         </div>
       )}
 
       <div className="detail-section">
         <h3>Course snapshot 📚</h3>
         <p className="detail-course-name">{rec.course_name}</p>
+
         <div className="detail-grid">
           <div>
             <div className="label">Subject</div>
@@ -856,8 +788,7 @@ function DetailCard({ rec, selectedCountry }) {
           <div>
             <div className="label">Fees</div>
             <div>
-              Tuition {rec.tuition_fee_lakhs}L · Living {rec.estimated_living_lakhs}L ·
-              Extras {rec.extra_costs_lakhs}L
+              Tuition {rec.tuition_fee_lakhs}L · Living {rec.estimated_living_lakhs}L · Extras {rec.extra_costs_lakhs}L
             </div>
           </div>
           <div>
@@ -867,9 +798,16 @@ function DetailCard({ rec, selectedCountry }) {
           <div>
             <div className="label">Math / coding</div>
             <div>
-              {rec.math_required ? "Math required" : "Math not strict"},{" "}
-              {rec.coding_required ? "coding required" : "coding not strict"}
+              {rec.math_required ? "Math required" : "Math not strict"}, {rec.coding_required ? "coding required" : "coding not strict"}
             </div>
+          </div>
+          <div>
+            <div className="label">Fit score</div>
+            <div>{rec.fit_score ?? "?"}/100</div>
+          </div>
+          <div>
+            <div className="label">Admission probability</div>
+            <div>{rec.admission_probability ?? "?"}%</div>
           </div>
         </div>
       </div>
@@ -912,14 +850,39 @@ function DetailCard({ rec, selectedCountry }) {
         </div>
       )}
 
+      {explain && (
+        <div className="detail-section">
+          <h4>AI explainability 🧠</h4>
+
+          {(explain.key_notes || []).length > 0 && (
+            <div className="advice-block">
+              <h4>Key reasons</h4>
+              <ul>
+                {explain.key_notes.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {explain.components_0_to_1 && (
+            <div className="advice-block">
+              <h4>Score breakdown</h4>
+              <ul>
+                {Object.entries(explain.components_0_to_1).map(([k, v]) => (
+                  <li key={k}>
+                    <b>{k}</b>: {Math.round((Number(v) || 0) * 100)}%
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       {rec.official_course_url && (
         <div className="detail-section">
-          <a
-            href={rec.official_course_url}
-            target="_blank"
-            rel="noreferrer"
-            className="btn primary small"
-          >
+          <a href={rec.official_course_url} target="_blank" rel="noreferrer" className="btn primary small">
             🌐 View official course page
           </a>
         </div>
@@ -935,12 +898,14 @@ function GlobalAdviceCard({ globalAdvice }) {
       {globalAdvice.headline && <p className="headline">{globalAdvice.headline}</p>}
       {globalAdvice.english_advice && <p className="advice-line">{globalAdvice.english_advice}</p>}
       {globalAdvice.budget_advice && <p className="advice-line">{globalAdvice.budget_advice}</p>}
+
       {(globalAdvice.profile_gaps || []).length > 0 && (
         <div className="advice-block">
           <h4>Profile gaps</h4>
           <ul>{globalAdvice.profile_gaps.map((g) => <li key={g}>{g}</li>)}</ul>
         </div>
       )}
+
       {(globalAdvice.next_steps || []).length > 0 && (
         <div className="advice-block">
           <h4>Next steps</h4>
@@ -953,85 +918,52 @@ function GlobalAdviceCard({ globalAdvice }) {
 
 function CompareDrawer({ recs, onClear }) {
   if (recs.length === 0) return null;
-
   return (
     <div className="compare-drawer">
       <div className="compare-header">
         <span>Compare universities ({recs.length}/4 selected)</span>
         <div className="compare-actions">
-          <button className="btn ghost small" onClick={onClear}>
-            Clear
-          </button>
+          <button className="btn ghost small" onClick={onClear}>Clear</button>
         </div>
       </div>
 
       <div className="compare-grid">
-        {recs.map((r) => {
-          const fitText = formatFit(r.fit_score);
-          const probText = formatProb(r.admission_probability);
-
-          return (
-            <div key={r.course_id} className="compare-col">
-              <div className="compare-title">
-                {r.university_name}
-                <span className={`pill level-${r.level_band}`}>
-                  {String(r.level_band || "").toUpperCase()}
-                </span>
-              </div>
-
-              {/* ✅ NEW: Fit + Prob */}
-              {(fitText || probText) && (
-                <div className="value">
-                  {fitText ? <span className="pill subtle">Fit: {fitText}</span> : null}{" "}
-                  {probText ? <span className="pill subtle">Prob: {probText}</span> : null}
-                </div>
-              )}
-
-              <div className="label">Course</div>
-              <div className="value">{r.course_name}</div>
-
-              <div className="label">City / Country</div>
-              <div className="value">
-                {r.city} · {r.country_name}
-              </div>
-
-              <div className="label">1st year cost</div>
-              <div className="value">{r.total_first_year_cost_lakhs}L</div>
-
-              <div className="label">Intakes</div>
-              <div className="value">{r.intakes_text}</div>
-
-              <div className="label">English</div>
-              <div className="value">
-                IELTS {r.english_requirement?.min_ielts_overall ?? "?"} · PTE{" "}
-                {r.english_requirement?.min_pte_overall ?? "?"}
-              </div>
-
-              <div className="label">Pros</div>
-              <ul className="value">
-                {(r.pros || []).slice(0, 3).map((p) => (
-                  <li key={p}>{p}</li>
-                ))}
-              </ul>
-
-              <div className="label">Cons</div>
-              <ul className="value">
-                {(r.cons || []).slice(0, 3).map((c) => (
-                  <li key={c}>{c}</li>
-                ))}
-              </ul>
+        {recs.map((r) => (
+          <div key={r.course_id} className="compare-col">
+            <div className="compare-title">
+              {r.university_name}
+              <span className={`pill level-${r.level_band}`}>{r.level_band.toUpperCase()}</span>
+              <span className="pill subtle">Fit {r.fit_score ?? "?"}</span>
+              <span className="pill subtle">Admit {r.admission_probability ?? "?"}%</span>
             </div>
-          );
-        })}
+
+            <div className="label">Course</div>
+            <div className="value">{r.course_name}</div>
+
+            <div className="label">City / Country</div>
+            <div className="value">{r.city} · {r.country_name}</div>
+
+            <div className="label">1st year cost</div>
+            <div className="value">{r.total_first_year_cost_lakhs}L</div>
+
+            <div className="label">Intakes</div>
+            <div className="value">{r.intakes_text}</div>
+
+            <div className="label">English</div>
+            <div className="value">
+              IELTS {r.english_requirement?.min_ielts_overall ?? "?"} · PTE {r.english_requirement?.min_pte_overall ?? "?"}
+            </div>
+
+            <div className="label">Pros</div>
+            <ul className="value">{(r.pros || []).slice(0, 3).map((p) => <li key={p}>{p}</li>)}</ul>
+
+            <div className="label">Cons</div>
+            <ul className="value">{(r.cons || []).slice(0, 3).map((c) => <li key={c}>{c}</li>)}</ul>
+          </div>
+        ))}
       </div>
     </div>
   );
-}
-
-// Keeping component present (your original UI uses it).
-// (No styling changes here; your bot can be upgraded later.)
-function HelpBot() {
-  return null;
 }
 
 export default App;
