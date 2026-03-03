@@ -115,7 +115,7 @@ function validateProfileStep2(p) {
   if (!Number.isFinite(maxUnis)) errors.maxUnis = "Enter a number (1–15).";
   else if (maxUnis < 1 || maxUnis > 15) errors.maxUnis = "Max universities must be 1–15.";
 
-  // ✅ course cluster mandatory
+  // course cluster mandatory
   if (!Array.isArray(p.clusters) || p.clusters.length === 0) {
     errors.clusters = "Please select at least 1 course cluster.";
   }
@@ -123,28 +123,23 @@ function validateProfileStep2(p) {
   return errors;
 }
 
-// ----------------- Formatting helpers -----------------
-const safeNum = (v, fallback = null) => {
+// ----------------- Small UI helpers -----------------
+const clampInt = (v) => {
   const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n);
 };
 
-const formatFit = (rec) => {
-  const n = safeNum(rec?.fit_score, null);
-  return n === null ? "—" : `${n}/100`;
+const formatFit = (fit) => {
+  const n = clampInt(fit);
+  if (n === null) return null;
+  return `${Math.max(0, Math.min(100, n))}/100`;
 };
 
-const formatProb = (rec) => {
-  const n = safeNum(rec?.admission_probability, null);
-  return n === null ? "—" : `${n}%`;
-};
-
-const probLabel = (prob) => {
-  const p = safeNum(prob, null);
-  if (p === null) return "Unknown";
-  if (p >= 70) return "High";
-  if (p >= 40) return "Medium";
-  return "Low";
+const formatProb = (p) => {
+  const n = clampInt(p);
+  if (n === null) return null;
+  return `${Math.max(0, Math.min(100, n))}%`;
 };
 
 // ----------------- Main App -----------------
@@ -168,8 +163,6 @@ function App() {
   const [globalAdvice, setGlobalAdvice] = useState(null);
 
   const [compareIds, setCompareIds] = useState([]);
-  const [isBotOpen, setIsBotOpen] = useState(false);
-  const [botAnswer, setBotAnswer] = useState("");
 
   // ------- Load course clusters when country changes -------
   useEffect(() => {
@@ -308,45 +301,6 @@ function App() {
     setSelectedRecId(null);
     setGlobalAdvice(null);
     setCompareIds([]);
-    setIsBotOpen(false);
-    setBotAnswer("");
-  };
-
-  // ----------------- Bot answers (rule based) -----------------
-  const botQuickAnswer = (type) => {
-    const cgpa = toNum(profile.cgpa);
-    const budget = toNum(profile.budget);
-    const proof = (profile.englishProof || "").toLowerCase();
-    const score = toNum(profile.englishScore);
-
-    if (type === "budget") {
-      if (!Number.isFinite(budget) || budget <= 0) return "Enter a valid budget first.";
-      return budget < 25
-        ? "Budget looks low for many options. Prefer lower-cost cities/unis or plan scholarship/loan."
-        : "Budget seems workable. Still compare total cost & city living carefully.";
-    }
-    if (type === "english") {
-      if (!proof) return "Select English proof first.";
-      if (!Number.isFinite(score)) return "Enter an English score/percentage.";
-      if (selectedCountry === "US") {
-        if (proof === "inter" || proof === "medium") return "US generally needs IELTS/TOEFL/PTE. Inter/Medium usually won’t work.";
-        return "For US: ensure your IELTS/TOEFL/PTE meets each university’s minimum. Some programs also ask GRE.";
-      }
-      if (selectedCountry === "UK") {
-        if (proof === "inter" || proof === "medium") return "Some UK universities accept Inter/Medium, but for visa & wider options IELTS/PTE is safer.";
-        return "For UK: your English test helps for admission & visa. Still check minimum requirements course-wise.";
-      }
-      return "Check English requirements course-wise.";
-    }
-    if (type === "levels") {
-      return "SAFE = CGPA comfortably above min. MODERATE = meets min. AMBITIOUS = slightly below min but still possible with strong SOP/projects.";
-    }
-    if (type === "gre") {
-      return "US note: GRE/GMAT can be Required/Recommended depending on university & program. Always verify official course page.";
-    }
-
-    if (!Number.isFinite(cgpa)) return "Enter CGPA for better guidance.";
-    return "Tell me what you want to check: Budget / English / Safe vs Ambitious / GRE.";
   };
 
   // ----------------- UI Pieces -----------------
@@ -464,7 +418,9 @@ function App() {
             <div className="form-card">
               <div className="form-card-header">
                 <h2>Student profile 🧑‍🎓</h2>
-                <p>Fields with <span className="req-star">*</span> are mandatory.</p>
+                <p>
+                  Fields with <span className="req-star">*</span> are mandatory.
+                </p>
               </div>
 
               {formStep === 1 && (
@@ -495,7 +451,9 @@ function App() {
                   </div>
 
                   <div className="form-field">
-                    <label>Backlogs (completed) <span className="req-star">*</span></label>
+                    <label>
+                      Backlogs (completed) <span className="req-star">*</span>
+                    </label>
                     <input
                       value={profile.backlogs}
                       onChange={(e) => updateProfileField("backlogs", e.target.value)}
@@ -506,7 +464,9 @@ function App() {
                   </div>
 
                   <div className="form-field">
-                    <label>Work-experience (years) <span className="req-star">*</span></label>
+                    <label>
+                      Work-experience (years) <span className="req-star">*</span>
+                    </label>
                     <input
                       value={profile.workEx}
                       onChange={(e) => updateProfileField("workEx", e.target.value)}
@@ -531,7 +491,9 @@ function App() {
                       <option value="medium">Medium of Instruction</option>
                       <option value="none">No test yet</option>
                     </select>
-                    {errors1.englishProof && <div className="field-note error">{errors1.englishProof}</div>}
+                    {errors1.englishProof && (
+                      <div className="field-note error">{errors1.englishProof}</div>
+                    )}
                   </div>
 
                   <div className="form-field">
@@ -544,7 +506,9 @@ function App() {
                       placeholder="e.g. 6.5 or 70"
                       inputMode="decimal"
                     />
-                    {errors1.englishScore && <div className="field-note error">{errors1.englishScore}</div>}
+                    {errors1.englishScore && (
+                      <div className="field-note error">{errors1.englishScore}</div>
+                    )}
                   </div>
 
                   <div className="form-field full">
@@ -615,14 +579,20 @@ function App() {
                         inputMode="numeric"
                       />
                       {errors2.maxUnis && <div className="field-note error">{errors2.maxUnis}</div>}
-                      <div className="field-note">Max 15 – engine will include at least 1 ambitious if possible.</div>
+                      <div className="field-note">
+                        Max 15 – engine will include at least 1 ambitious if possible.
+                      </div>
                     </div>
 
                     <div className="form-actions full">
                       <button className="btn ghost" onClick={() => setFormStep(1)}>
                         ← Back to profile
                       </button>
-                      <button className="btn primary" onClick={handleFindUniversities} disabled={loadingRecs}>
+                      <button
+                        className="btn primary"
+                        onClick={handleFindUniversities}
+                        disabled={loadingRecs}
+                      >
                         {loadingRecs ? "Finding universities…" : "Find universities"}
                       </button>
                     </div>
@@ -712,7 +682,8 @@ function App() {
               <h2>Recommendations 🎯</h2>
               <p>
                 Profile for <strong>{profile.name || "Student"}</strong> · CGPA{" "}
-                <strong>{profile.cgpa || "?"}</strong> · Budget <strong>{profile.budget || "?"}L</strong>
+                <strong>{profile.cgpa || "?"}</strong> · Budget{" "}
+                <strong>{profile.budget || "?"}L</strong>
               </p>
               <div className="summary-pills">
                 <span className="pill safe">Safe: {safeCount}</span>
@@ -731,7 +702,8 @@ function App() {
 
             {recommendations.length === 0 && !loadingRecs && (
               <div className="no-results-box">
-                No recommendations yet. Try adjusting CGPA, budget or English and click <b>Find universities</b>.
+                No recommendations yet. Try adjusting CGPA, budget or English and click{" "}
+                <b>Find universities</b>.
               </div>
             )}
 
@@ -741,9 +713,8 @@ function App() {
               {recommendations.map((rec) => {
                 const active = rec.course_id === selectedRecId;
 
-                const fitText = formatFit(rec);
-                const probText = formatProb(rec);
-                const probTag = probLabel(rec?.admission_probability);
+                const fitText = formatFit(rec.fit_score);
+                const probText = formatProb(rec.admission_probability);
 
                 return (
                   <div
@@ -758,21 +729,32 @@ function App() {
                         </div>
                         <div className="uni-row-course">{rec.course_name}</div>
                         <div className="uni-row-meta">
-                          <span className={`pill level-${rec.level_band}`}>{rec.level_band.toUpperCase()}</span>
+                          <span className={`pill level-${rec.level_band}`}>
+                            {String(rec.level_band || "").toUpperCase()}
+                          </span>
 
                           {/* ✅ NEW: Fit + Probability */}
-                          <span className="pill subtle">Fit: {fitText}</span>
-                          <span className="pill subtle">Prob: {probText} ({probTag})</span>
+                          {fitText && (
+                            <span className="pill subtle">Fit: {fitText}</span>
+                          )}
+                          {probText && (
+                            <span className="pill subtle">Prob: {probText}</span>
+                          )}
 
                           <span className="pill subtle">Visa: {rec.visa_risk || "?"}</span>
-                          <span className="pill subtle">1st year: {rec.total_first_year_cost_lakhs}L</span>
+                          <span className="pill subtle">
+                            1st year: {rec.total_first_year_cost_lakhs}L
+                          </span>
                           <span className="pill subtle">Intakes: {rec.intakes_text}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="uni-row-actions">
-                      <label className="checkbox-label small" onClick={(e) => e.stopPropagation()}>
+                      <label
+                        className="checkbox-label small"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <input
                           type="checkbox"
                           checked={compareIds.includes(rec.course_id)}
@@ -798,21 +780,19 @@ function App() {
           </section>
         </main>
 
-        {compareIds.length > 0 && <CompareDrawer recs={compareRecs} onClear={() => setCompareIds([])} />}
+        {compareIds.length > 0 && (
+          <CompareDrawer recs={compareRecs} onClear={() => setCompareIds([])} />
+        )}
 
         <HelpBot
-          isOpen={isBotOpen}
-          onToggle={() => setIsBotOpen((v) => !v)}
+          isOpen={false}
+          onToggle={() => {}}
           profile={profile}
           country={cInfo}
           globalAdvice={globalAdvice}
           safeCount={safeCount}
           moderateCount={moderateCount}
           ambitiousCount={ambitiousCount}
-          botAnswer={botAnswer}
-          setBotAnswer={setBotAnswer}
-          botQuickAnswer={botQuickAnswer}
-          selectedCountry={selectedCountry}
         />
       </div>
     );
@@ -827,12 +807,8 @@ function App() {
 function DetailCard({ rec, selectedCountry }) {
   const english = rec.english_requirement || {};
 
-  const fitText = formatFit(rec);
-  const probText = formatProb(rec);
-  const probTag = probLabel(rec?.admission_probability);
-
-  const explain = rec.ai_explainability || {};
-  const keyNotes = Array.isArray(explain.key_notes) ? explain.key_notes : [];
+  const fitText = formatFit(rec.fit_score);
+  const probText = formatProb(rec.admission_probability);
 
   return (
     <div className="detail-card">
@@ -843,13 +819,13 @@ function DetailCard({ rec, selectedCountry }) {
             {rec.city} · {rec.country_name}
           </div>
         </div>
+
         <div className="detail-badges">
-          <span className={`pill level-${rec.level_band}`}>{rec.level_band.toUpperCase()}</span>
-
-          {/* ✅ NEW: AI numbers in header */}
-          <span className="pill subtle">Fit: {fitText}</span>
-          <span className="pill subtle">Prob: {probText} ({probTag})</span>
-
+          <span className={`pill level-${rec.level_band}`}>
+            {String(rec.level_band || "").toUpperCase()}
+          </span>
+          {fitText && <span className="pill subtle">Fit: {fitText}</span>}
+          {probText && <span className="pill subtle">Prob: {probText}</span>}
           <span className="pill subtle">{rec.tier_label}</span>
           <span className="pill subtle">Visa: {rec.visa_risk || "?"}</span>
         </div>
@@ -859,23 +835,9 @@ function DetailCard({ rec, selectedCountry }) {
         <div className="detail-section advice-section">
           <h4>US Test Note 🧾</h4>
           <p>
-            Some US programs may require/recommend <b>GRE/GMAT</b>. Always confirm on the official course page and university admissions page.
+            Some US programs may require/recommend <b>GRE/GMAT</b>. Always confirm
+            on the official course page and university admissions page.
           </p>
-        </div>
-      )}
-
-      {/* ✅ NEW: Explainability */}
-      {keyNotes.length > 0 && (
-        <div className="detail-section advice-section">
-          <h4>Why this score? (Explainability) 🧠</h4>
-          <ul>
-            {keyNotes.slice(0, 8).map((x) => (
-              <li key={x}>{x}</li>
-            ))}
-          </ul>
-          <div className="field-note">
-            Note: This is a weighted engine (not heavy ML). Always verify with official pages.
-          </div>
         </div>
       )}
 
@@ -894,7 +856,8 @@ function DetailCard({ rec, selectedCountry }) {
           <div>
             <div className="label">Fees</div>
             <div>
-              Tuition {rec.tuition_fee_lakhs}L · Living {rec.estimated_living_lakhs}L · Extras {rec.extra_costs_lakhs}L
+              Tuition {rec.tuition_fee_lakhs}L · Living {rec.estimated_living_lakhs}L ·
+              Extras {rec.extra_costs_lakhs}L
             </div>
           </div>
           <div>
@@ -904,21 +867,14 @@ function DetailCard({ rec, selectedCountry }) {
           <div>
             <div className="label">Math / coding</div>
             <div>
-              {rec.math_required ? "Math required" : "Math not strict"}, {rec.coding_required ? "coding required" : "coding not strict"}
+              {rec.math_required ? "Math required" : "Math not strict"},{" "}
+              {rec.coding_required ? "coding required" : "coding not strict"}
             </div>
-          </div>
-          <div>
-            <div className="label">Scholarship (typical)</div>
-            <div>{rec.typical_scholarship_lakhs ? `${rec.typical_scholarship_lakhs}L` : "Not specified"}</div>
           </div>
         </div>
       </div>
 
       <div className="detail-section triple">
-        <div>
-          <h4>Why this country 🌍</h4>
-          <ul>{(rec.why_country || []).map((x) => <li key={x}>{x}</li>)}</ul>
-        </div>
         <div>
           <h4>Why this university 🏫</h4>
           <ul>{(rec.why_university || []).map((x) => <li key={x}>{x}</li>)}</ul>
@@ -947,11 +903,6 @@ function DetailCard({ rec, selectedCountry }) {
           PTE: {english.min_pte_overall ? `≥ ${english.min_pte_overall}` : "not specified"} ·
           Duolingo: {english.min_duolingo ? `≥ ${english.min_duolingo}` : "not specified"}
         </p>
-        {english.english_ok_now === false && (
-          <div className="field-note error">
-            English not OK now. This will reduce probability — improve IELTS/PTE/Duolingo.
-          </div>
-        )}
       </div>
 
       {rec.short_advice && (
@@ -963,7 +914,12 @@ function DetailCard({ rec, selectedCountry }) {
 
       {rec.official_course_url && (
         <div className="detail-section">
-          <a href={rec.official_course_url} target="_blank" rel="noreferrer" className="btn primary small">
+          <a
+            href={rec.official_course_url}
+            target="_blank"
+            rel="noreferrer"
+            className="btn primary small"
+          >
             🌐 View official course page
           </a>
         </div>
@@ -997,242 +953,85 @@ function GlobalAdviceCard({ globalAdvice }) {
 
 function CompareDrawer({ recs, onClear }) {
   if (recs.length === 0) return null;
+
   return (
     <div className="compare-drawer">
       <div className="compare-header">
         <span>Compare universities ({recs.length}/4 selected)</span>
         <div className="compare-actions">
-          <button className="btn ghost small" onClick={onClear}>Clear</button>
+          <button className="btn ghost small" onClick={onClear}>
+            Clear
+          </button>
         </div>
       </div>
 
       <div className="compare-grid">
-        {recs.map((r) => (
-          <div key={r.course_id} className="compare-col">
-            <div className="compare-title">
-              {r.university_name}
-              <span className={`pill level-${r.level_band}`}>{r.level_band.toUpperCase()}</span>
-            </div>
+        {recs.map((r) => {
+          const fitText = formatFit(r.fit_score);
+          const probText = formatProb(r.admission_probability);
 
-            {/* ✅ NEW: Fit/Prob in compare */}
-            <div className="label">Fit / Probability</div>
-            <div className="value">
-              Fit {formatFit(r)} · Prob {formatProb(r)}
-            </div>
+          return (
+            <div key={r.course_id} className="compare-col">
+              <div className="compare-title">
+                {r.university_name}
+                <span className={`pill level-${r.level_band}`}>
+                  {String(r.level_band || "").toUpperCase()}
+                </span>
+              </div>
 
-            <div className="label">Course</div>
-            <div className="value">{r.course_name}</div>
-            <div className="label">City / Country</div>
-            <div className="value">{r.city} · {r.country_name}</div>
-            <div className="label">1st year cost</div>
-            <div className="value">{r.total_first_year_cost_lakhs}L</div>
-            <div className="label">Intakes</div>
-            <div className="value">{r.intakes_text}</div>
-            <div className="label">English</div>
-            <div className="value">
-              IELTS {r.english_requirement?.min_ielts_overall ?? "?"} · PTE {r.english_requirement?.min_pte_overall ?? "?"}
+              {/* ✅ NEW: Fit + Prob */}
+              {(fitText || probText) && (
+                <div className="value">
+                  {fitText ? <span className="pill subtle">Fit: {fitText}</span> : null}{" "}
+                  {probText ? <span className="pill subtle">Prob: {probText}</span> : null}
+                </div>
+              )}
+
+              <div className="label">Course</div>
+              <div className="value">{r.course_name}</div>
+
+              <div className="label">City / Country</div>
+              <div className="value">
+                {r.city} · {r.country_name}
+              </div>
+
+              <div className="label">1st year cost</div>
+              <div className="value">{r.total_first_year_cost_lakhs}L</div>
+
+              <div className="label">Intakes</div>
+              <div className="value">{r.intakes_text}</div>
+
+              <div className="label">English</div>
+              <div className="value">
+                IELTS {r.english_requirement?.min_ielts_overall ?? "?"} · PTE{" "}
+                {r.english_requirement?.min_pte_overall ?? "?"}
+              </div>
+
+              <div className="label">Pros</div>
+              <ul className="value">
+                {(r.pros || []).slice(0, 3).map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+
+              <div className="label">Cons</div>
+              <ul className="value">
+                {(r.cons || []).slice(0, 3).map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
             </div>
-            <div className="label">Pros</div>
-            <ul className="value">{(r.pros || []).slice(0, 3).map((p) => <li key={p}>{p}</li>)}</ul>
-            <div className="label">Cons</div>
-            <ul className="value">{(r.cons || []).slice(0, 3).map((c) => <li key={c}>{c}</li>)}</ul>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function HelpBot({
-  isOpen,
-  onToggle,
-  profile,
-  country,
-  globalAdvice,
-  safeCount,
-  moderateCount,
-  ambitiousCount,
-}) {
-  const [messages, setMessages] = useState(() => [
-    {
-      role: "bot",
-      text: "Hi! 👋 I’m Beast Help Bot. Ask me about IELTS/PTE, budget, SAFE vs AMBITIOUS, or how many unis to apply.",
-    },
-  ]);
-  const [input, setInput] = useState("");
-
-  const profileSummary = {
-    country: `${country.flag} ${country.name}`,
-    cgpa: profile.cgpa || "?",
-    budget: profile.budget || "?",
-    english: `${profile.englishProof?.toUpperCase() || "?"} ${profile.englishScore || "?"}`,
-    clusters: (profile.clusters || []).length ? profile.clusters.join(", ") : "Not selected",
-  };
-
-  const makeReply = (qRaw) => {
-    const q = (qRaw || "").toLowerCase().trim();
-
-    // Budget helper
-    const budgetL = Number(profile.budget || 0);
-    const budgetText =
-      budgetL <= 0
-        ? "Budget value enter cheyyi bro (lakhs)."
-        : country.name.includes("United States")
-        ? budgetL >= 55
-          ? `✅ ${budgetL}L budget US ki decent. Top unis ki inka ekkuva avvachu.`
-          : `⚠️ ${budgetL}L US ki tight. Mostly budget/private options or scholarships try cheyyali.`
-        : budgetL >= 28
-        ? `✅ ${budgetL}L UK ki workable (outside London best).`
-        : `⚠️ ${budgetL}L UK ki very tight. Low-fee cities + part-time plan strong ga undali.`;
-
-    // English helper
-    const proof = (profile.englishProof || "").toLowerCase();
-    const score = Number(profile.englishScore || 0);
-    let englishText = "English proof details enter cheyyi bro.";
-    if (proof === "ielts") {
-      englishText =
-        score >= 6.5
-          ? `✅ IELTS ${score} is generally OK for many unis. Some need 7.0.`
-          : `⚠️ IELTS ${score} low side. Target 6.5+ (min).`;
-    } else if (proof === "pte") {
-      englishText =
-        score >= 58
-          ? `✅ PTE ${score} generally OK. Some need 62+.`
-          : `⚠️ PTE ${score} low side. Target 58–65+.`;
-    } else if (proof === "duolingo") {
-      englishText =
-        score >= 100
-          ? `✅ Duolingo ${score} okay for many unis (policy varies).`
-          : `⚠️ Duolingo ${score} low side. Target 100–110+.`;
-    } else if (proof === "inter") {
-      englishText =
-        score >= 70
-          ? `✅ Inter English ${score}% helps for conditional/waiver in some UK unis. Still, IELTS/PTE is safest.`
-          : `⚠️ Inter English ${score}% might be weak. IELTS/PTE recommend.`;
-    } else if (proof === "none") {
-      englishText = `📝 No test yet. For UK/US safest path: IELTS 6.5+ or PTE 58+ (varies).`;
-    }
-
-    // Safe vs ambitious
-    const safeVs = `SAFE ✅ = your CGPA clearly above minimum.  
-MODERATE 🟡 = borderline but possible.  
-AMBITIOUS 🔵 = reach option, not guaranteed.  
-Plan: 2–3 SAFE + 2 MODERATE + 1 AMBITIOUS.`;
-
-    // How many to apply
-    const howMany =
-      `Best: 5–7 applications.  
-If budget tight → focus 5 (strongest matches).  
-If aiming top tier → keep 7 with 1–2 ambitious.`;
-
-    if (q.includes("budget")) return budgetText;
-    if (q.includes("english") || q.includes("ielts") || q.includes("pte") || q.includes("duolingo"))
-      return englishText;
-    if (q.includes("safe") || q.includes("ambitious")) return safeVs;
-    if (q.includes("how many") || q.includes("apply")) return howMany;
-
-    if (globalAdvice?.headline) {
-      return `🧠 Based on your profile: ${globalAdvice.headline}`;
-    }
-    return "Ask: budget / English / SAFE vs AMBITIOUS / how many apply 🙂";
-  };
-
-  const send = (text) => {
-    const t = (text || "").trim();
-    if (!t) return;
-
-    setMessages((prev) => [...prev, { role: "user", text: t }]);
-    const reply = makeReply(t);
-    setTimeout(() => {
-      setMessages((prev) => [...prev, { role: "bot", text: reply }]);
-    }, 250);
-  };
-
-  const onSubmit = (e) => {
-    e.preventDefault();
-    send(input);
-    setInput("");
-  };
-
-  const quick = [
-    "Is my budget enough?",
-    "Is my English score ok?",
-    "What does SAFE / AMBITIOUS mean?",
-    "How many universities should I apply to?",
-  ];
-
-  return (
-    <>
-      <button className="bot-fab" onClick={onToggle} title="Beast Help">
-        💬
-      </button>
-
-      {isOpen && (
-        <div className="bot-modal">
-          <div className="bot-modal-card">
-            <div className="bot-modal-header">
-              <div className="bot-modal-title">
-                🤖 Beast Help Bot
-                <div className="bot-modal-sub">
-                  Explainable engine + rules. Not heavy ML.
-                </div>
-              </div>
-              <button className="bot-close" onClick={onToggle} aria-label="Close">
-                ✕
-              </button>
-            </div>
-
-            <div className="bot-modal-body">
-              <div className="bot-profile-box">
-                <div className="bot-profile-title">Your current profile</div>
-                <ul>
-                  <li><b>Country:</b> {profileSummary.country}</li>
-                  <li><b>CGPA:</b> {profileSummary.cgpa} | <b>Backlogs:</b> {profile.backlogs || 0}</li>
-                  <li><b>Budget:</b> ₹{profileSummary.budget}L | <b>English:</b> {profileSummary.english}</li>
-                  <li><b>Clusters:</b> {profileSummary.clusters}</li>
-                  <li><b>Safe/Mod/Amb:</b> {safeCount}/{moderateCount}/{ambitiousCount}</li>
-                </ul>
-              </div>
-
-              <div className="bot-quick-title">Quick questions you can ask:</div>
-              <div className="bot-quick-grid">
-                {quick.map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    className="bot-chip"
-                    onClick={() => send(q)}
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-
-              <div className="bot-chat">
-                {messages.map((m, idx) => (
-                  <div
-                    key={idx}
-                    className={`bubble ${m.role === "user" ? "user" : "bot"}`}
-                  >
-                    {m.text}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <form className="bot-modal-input" onSubmit={onSubmit}>
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Type your question…"
-              />
-              <button type="submit">Send</button>
-            </form>
-          </div>
-        </div>
-      )}
-    </>
-  );
+// Keeping component present (your original UI uses it).
+// (No styling changes here; your bot can be upgraded later.)
+function HelpBot() {
+  return null;
 }
 
 export default App;
