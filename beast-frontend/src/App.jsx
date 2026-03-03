@@ -1,9 +1,6 @@
-
-
-
 import React, { useEffect, useMemo, useState } from "react";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:5000";
+const API_BASE = "https://beast-consultancy.onrender.com";
 
 // ----------------- Small helpers -----------------
 const COUNTRY_CONFIG = {
@@ -118,13 +115,37 @@ function validateProfileStep2(p) {
   if (!Number.isFinite(maxUnis)) errors.maxUnis = "Enter a number (1–15).";
   else if (maxUnis < 1 || maxUnis > 15) errors.maxUnis = "Max universities must be 1–15.";
 
-  // ✅ FIX: course cluster mandatory
+  // ✅ course cluster mandatory
   if (!Array.isArray(p.clusters) || p.clusters.length === 0) {
     errors.clusters = "Please select at least 1 course cluster.";
   }
 
   return errors;
 }
+
+// ----------------- Formatting helpers -----------------
+const safeNum = (v, fallback = null) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const formatFit = (rec) => {
+  const n = safeNum(rec?.fit_score, null);
+  return n === null ? "—" : `${n}/100`;
+};
+
+const formatProb = (rec) => {
+  const n = safeNum(rec?.admission_probability, null);
+  return n === null ? "—" : `${n}%`;
+};
+
+const probLabel = (prob) => {
+  const p = safeNum(prob, null);
+  if (p === null) return "Unknown";
+  if (p >= 70) return "High";
+  if (p >= 40) return "Medium";
+  return "Low";
+};
 
 // ----------------- Main App -----------------
 function App() {
@@ -329,25 +350,25 @@ function App() {
   };
 
   // ----------------- UI Pieces -----------------
- const renderHeader = (rightNode) => (
-  <header className="app-header header-upgraded">
-  <div className="brand-left">
-    <div className="logo-circle">🎓</div>
+  const renderHeader = (rightNode) => (
+    <header className="app-header header-upgraded">
+      <div className="brand-left">
+        <div className="logo-circle">🎓</div>
 
-    <div className="brand-text">
-      <div className="brand-title">Beast Consultancy</div>
-      <div className="brand-sub">
-        Strict, realistic admissions engine – powered by your own DB.
+        <div className="brand-text">
+          <div className="brand-title">Beast Consultancy</div>
+          <div className="brand-sub">
+            Strict, realistic admissions engine – powered by your own DB.
+          </div>
+          <div className="built-by-inline">
+            Product design &amp; build by Avanidhar 🚀
+          </div>
+        </div>
       </div>
-      <div className="built-by-inline">
-        Product design &amp; build by Avanidhar 🚀
-      </div>
-    </div>
-  </div>
 
-  <div className="header-right-pill">Offline rules • No API keys</div>
-</header>
-);
+      <div className="header-right-pill">Offline rules • No API keys</div>
+    </header>
+  );
 
   const renderLanding = () => {
     const cInfo = COUNTRY_CONFIG[selectedCountry];
@@ -364,7 +385,6 @@ function App() {
               Germany with the same Beast engine.
             </p>
 
-            {/* Change 2: CTA moved UP (no scroll) */}
             <div className="hero-cta-row">
               <button className="btn primary" onClick={handleStart}>
                 Continue with {cInfo.flag} {cInfo.name}
@@ -407,7 +427,6 @@ function App() {
             {[
               { code: "CA", name: "Canada", flag: "🇨🇦" },
               { code: "AU", name: "Australia", flag: "🇦🇺" },
-              
             ].map((c) => (
               <div key={c.code} className="country-card coming-soon">
                 <div className="country-flag">{c.flag}</div>
@@ -551,7 +570,6 @@ function App() {
               )}
 
               {formStep === 2 && (
-                // Change 3: side-by-side layout (left fields + right course panel)
                 <div className="pref-layout">
                   <div className="pref-left">
                     <div className="form-field full">
@@ -722,6 +740,11 @@ function App() {
             <div className="uni-list">
               {recommendations.map((rec) => {
                 const active = rec.course_id === selectedRecId;
+
+                const fitText = formatFit(rec);
+                const probText = formatProb(rec);
+                const probTag = probLabel(rec?.admission_probability);
+
                 return (
                   <div
                     key={rec.course_id}
@@ -736,6 +759,11 @@ function App() {
                         <div className="uni-row-course">{rec.course_name}</div>
                         <div className="uni-row-meta">
                           <span className={`pill level-${rec.level_band}`}>{rec.level_band.toUpperCase()}</span>
+
+                          {/* ✅ NEW: Fit + Probability */}
+                          <span className="pill subtle">Fit: {fitText}</span>
+                          <span className="pill subtle">Prob: {probText} ({probTag})</span>
+
                           <span className="pill subtle">Visa: {rec.visa_risk || "?"}</span>
                           <span className="pill subtle">1st year: {rec.total_first_year_cost_lakhs}L</span>
                           <span className="pill subtle">Intakes: {rec.intakes_text}</span>
@@ -761,12 +789,17 @@ function App() {
           </section>
 
           <section className="right-panel results-detail">
-            {selectedRec ? <DetailCard rec={selectedRec} selectedCountry={selectedCountry} /> : <div className="no-detail-box">Select a university from the left.</div>}
+            {selectedRec ? (
+              <DetailCard rec={selectedRec} selectedCountry={selectedCountry} />
+            ) : (
+              <div className="no-detail-box">Select a university from the left.</div>
+            )}
             {globalAdvice && <GlobalAdviceCard globalAdvice={globalAdvice} />}
           </section>
         </main>
 
         {compareIds.length > 0 && <CompareDrawer recs={compareRecs} onClear={() => setCompareIds([])} />}
+
         <HelpBot
           isOpen={isBotOpen}
           onToggle={() => setIsBotOpen((v) => !v)}
@@ -793,6 +826,14 @@ function App() {
 // ----------------- Detail components -----------------
 function DetailCard({ rec, selectedCountry }) {
   const english = rec.english_requirement || {};
+
+  const fitText = formatFit(rec);
+  const probText = formatProb(rec);
+  const probTag = probLabel(rec?.admission_probability);
+
+  const explain = rec.ai_explainability || {};
+  const keyNotes = Array.isArray(explain.key_notes) ? explain.key_notes : [];
+
   return (
     <div className="detail-card">
       <div className="detail-header">
@@ -804,6 +845,11 @@ function DetailCard({ rec, selectedCountry }) {
         </div>
         <div className="detail-badges">
           <span className={`pill level-${rec.level_band}`}>{rec.level_band.toUpperCase()}</span>
+
+          {/* ✅ NEW: AI numbers in header */}
+          <span className="pill subtle">Fit: {fitText}</span>
+          <span className="pill subtle">Prob: {probText} ({probTag})</span>
+
           <span className="pill subtle">{rec.tier_label}</span>
           <span className="pill subtle">Visa: {rec.visa_risk || "?"}</span>
         </div>
@@ -815,6 +861,21 @@ function DetailCard({ rec, selectedCountry }) {
           <p>
             Some US programs may require/recommend <b>GRE/GMAT</b>. Always confirm on the official course page and university admissions page.
           </p>
+        </div>
+      )}
+
+      {/* ✅ NEW: Explainability */}
+      {keyNotes.length > 0 && (
+        <div className="detail-section advice-section">
+          <h4>Why this score? (Explainability) 🧠</h4>
+          <ul>
+            {keyNotes.slice(0, 8).map((x) => (
+              <li key={x}>{x}</li>
+            ))}
+          </ul>
+          <div className="field-note">
+            Note: This is a weighted engine (not heavy ML). Always verify with official pages.
+          </div>
         </div>
       )}
 
@@ -846,11 +907,18 @@ function DetailCard({ rec, selectedCountry }) {
               {rec.math_required ? "Math required" : "Math not strict"}, {rec.coding_required ? "coding required" : "coding not strict"}
             </div>
           </div>
+          <div>
+            <div className="label">Scholarship (typical)</div>
+            <div>{rec.typical_scholarship_lakhs ? `${rec.typical_scholarship_lakhs}L` : "Not specified"}</div>
+          </div>
         </div>
       </div>
 
       <div className="detail-section triple">
-        
+        <div>
+          <h4>Why this country 🌍</h4>
+          <ul>{(rec.why_country || []).map((x) => <li key={x}>{x}</li>)}</ul>
+        </div>
         <div>
           <h4>Why this university 🏫</h4>
           <ul>{(rec.why_university || []).map((x) => <li key={x}>{x}</li>)}</ul>
@@ -879,6 +947,11 @@ function DetailCard({ rec, selectedCountry }) {
           PTE: {english.min_pte_overall ? `≥ ${english.min_pte_overall}` : "not specified"} ·
           Duolingo: {english.min_duolingo ? `≥ ${english.min_duolingo}` : "not specified"}
         </p>
+        {english.english_ok_now === false && (
+          <div className="field-note error">
+            English not OK now. This will reduce probability — improve IELTS/PTE/Duolingo.
+          </div>
+        )}
       </div>
 
       {rec.short_advice && (
@@ -940,6 +1013,13 @@ function CompareDrawer({ recs, onClear }) {
               {r.university_name}
               <span className={`pill level-${r.level_band}`}>{r.level_band.toUpperCase()}</span>
             </div>
+
+            {/* ✅ NEW: Fit/Prob in compare */}
+            <div className="label">Fit / Probability</div>
+            <div className="value">
+              Fit {formatFit(r)} · Prob {formatProb(r)}
+            </div>
+
             <div className="label">Course</div>
             <div className="value">{r.course_name}</div>
             <div className="label">City / Country</div>
@@ -1045,14 +1125,12 @@ Plan: 2–3 SAFE + 2 MODERATE + 1 AMBITIOUS.`;
 If budget tight → focus 5 (strongest matches).  
 If aiming top tier → keep 7 with 1–2 ambitious.`;
 
-    // Use keywords
     if (q.includes("budget")) return budgetText;
     if (q.includes("english") || q.includes("ielts") || q.includes("pte") || q.includes("duolingo"))
       return englishText;
     if (q.includes("safe") || q.includes("ambitious")) return safeVs;
     if (q.includes("how many") || q.includes("apply")) return howMany;
 
-    // fallback uses global advice if available
     if (globalAdvice?.headline) {
       return `🧠 Based on your profile: ${globalAdvice.headline}`;
     }
@@ -1096,7 +1174,7 @@ If aiming top tier → keep 7 with 1–2 ambitious.`;
               <div className="bot-modal-title">
                 🤖 Beast Help Bot
                 <div className="bot-modal-sub">
-                  Not real AI yet — using your rules only.
+                  Explainable engine + rules. Not heavy ML.
                 </div>
               </div>
               <button className="bot-close" onClick={onToggle} aria-label="Close">
@@ -1158,5 +1236,3 @@ If aiming top tier → keep 7 with 1–2 ambitious.`;
 }
 
 export default App;
-
-
